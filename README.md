@@ -15,3 +15,7 @@ To use the bot, ping it via its username (e.g. @bot) or reply to it.
 Discord coming soon
 
 Any contributions to this would be greatly appreciated. 
+
+## TODO
+- Clean code up
+- Add ability to read people's display names (So the bot doesnt refer to them as User)
