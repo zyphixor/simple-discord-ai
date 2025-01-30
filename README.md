@@ -6,6 +6,7 @@ A self-hostable chatbot for Discord that utilizes ollama.
 2. `pip install discord.py ollama requests`
 3. Open `run.py` and replace `TOKEN = ''` with `TOKEN = 'YOUR_BOT_TOKEN'`
 4. Run `run.py`
+Note: if you want the bot to work without it being pinged/mentioned, use runNoMention.py
 
 ## Usage
 To use the bot, ping it via its username (e.g. @bot) or reply to it.
