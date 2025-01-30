@@ -21,3 +21,4 @@ Any contributions to this would be greatly appreciated.
 - Clean code up
 - Squash some bugs
 - have bot read display names
+- (IDEALLY LAST) provide ability to save history to file for persistance
