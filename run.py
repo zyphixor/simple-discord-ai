@@ -20,7 +20,11 @@ msg_hist = []
 
 # Function to send a request to the Ollama API and get a response
 def generate_response(prompt):
-    full_prompt = '\n'.join(msg_hist) + "\nUser: " + prompt  # Add the new user prompt to the history
+
+# prevent the bot from attempting to mention itself by stripping its @ from
+# the prompt the user provides
+    prompt = prompt.replace(f"<@!{client.user.id}>", "").strip()
+    full_prompt = '\n'.join(msg_hist) + "\n" + prompt  # Add the new user prompt to the history
 
     data = {
         "model": "llama2-uncensored",  # Adjust this if you want to use a different model
@@ -33,6 +37,7 @@ def generate_response(prompt):
     if response.status_code == 200:
         response_data = response.json()
         return response_data.get("response", "Sorry, I couldn't generate a response.")
+	
     else:
         return "There was an error with the API."
 
@@ -52,22 +57,26 @@ async def on_message(message):
 
 	# Check if the bot was mentioned
 	if client.user.mentioned_in(message):
-		prompt = message.content.replace(f"<@!{client.user.id}>", "").strip()  # Remove the mention part
+		prompt = message.content.replace(f"<@!{client.user.id}>", "").replace(f"<@{client.user.id}>", "").strip()  # Remove the mention part so it doesnt attempt to ping itself.
+		
 		if prompt:
 		# use send_typing() to send "typing..." indicator
 			async with message.channel.typing():
-				response = generate_response(prompt)
+			# generate response and strip the bots name 
+			# (to prevent it from saying "Bot: lorem ipsum" instead of "lorem ipsum"
+				response = generate_response(prompt).replace(f"{client.user.display_name}:", "").strip() 
 				await message.channel.send(response)
 		else:
-			async with message.channel.typing():
+			async with message.channel.typing(): # if no prompt is given, just generate something based on msg_hist, itll be random if there is none
 				response = generate_response()
+				response = generate_response(prompt).replace(f"{client.user.display_name}:", "").strip()
 				await message.channel.send(response)
 
 		# Basic memory system
 		# Add the user's message to the memory list
-		msg_hist.append(message.content)
+		msg_hist.append(f"{message.author.display_name}: {message.content}")
 		# add bot reply to history
-		msg_hist.append(response)
+		msg_hist.append(f"{client.user.display_name}: {response}")
 		
 		# REDUCE THE NUMBER HERE FOR FASTER RESPONSES
 		# Please note: reducing this number will increase responses
