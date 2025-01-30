@@ -1,6 +1,3 @@
-# TODO: make it remember conversations for a more "human" feel.
-# maybe i could use SQLite or Redis for this..
-
 # import everything
 import discord
 import ollama
@@ -65,12 +62,20 @@ async def on_message(message):
 
     # Check if the bot was mentioned
     if client.user.mentioned_in(message):
-        prompt = message.content.replace(f"<@!{client.user.id}>", "").strip()  # Remove the mention part
-        if prompt:
-            response = generate_response(prompt)
-            await message.channel.send(response)
-        else:
-            await message.channel.send("bing bop boom boom boom bop bam, the type of shit im on you wouldnt understand")
+    # try and except are used to check if the bot has permission to send in the channel.
+        try:
+            prompt = message.content.replace(f"<@!{client.user.id}>", "").strip()  # Remove the mention part
+            async with message.channel.typing():
+                if prompt:
+                 response = generate_response(prompt)
+                 await message.channel.send(response)
+                else: # if prompt is empty
+                    response = generate_response(prompt)
+                    await message.channel.send(response)
+        except discord.errors.Forbidden:
+        # Handle Forbidden error for typing (bot can't show typing)
+            print(f"Error: Bot does not have permission to type in {message.channel.name}")
+            return
 
 # Run the bot
 client.run(TOKEN)
