@@ -18,4 +18,4 @@ Any contributions to this would be greatly appreciated.
 
 ## TODO
 - Clean code up
-- Add ability to read people's display names (So the bot doesnt refer to them as User)
+- Squash some bugs
