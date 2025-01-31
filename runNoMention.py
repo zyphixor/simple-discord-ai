@@ -4,6 +4,7 @@ import json
 import discord
 import tomllib
 import ollama
+import os # Don't panic!!! This is used to save the history file to the computer!
 
 # LOAD VARIABLES FROM config.toml
 with open("config.toml", 'rb') as f: # load config as f (f is short for file im just using slang, chat)
@@ -13,8 +14,25 @@ with open("config.toml", 'rb') as f: # load config as f (f is short for file im 
 TOKEN = config_data['discord']['token'] # Load token from config file
 API_URL = 'http://localhost:11434/api/chat'
 
+
+
+# Define the path for the conversation history file
+HISTORY_FILE_PATH = "history.json"
+
+# Load conversation history from a file if it exists
+def load_conversation_history():
+    if os.path.exists(HISTORY_FILE_PATH):
+        with open(HISTORY_FILE_PATH, 'r') as file:
+            return json.load(file)
+    return []
+
+# Save conversation history to a file
+def save_conversation_history():
+    with open(HISTORY_FILE_PATH, 'w') as file:
+        json.dump(conversation_history, file)
+
 # Store conversation history in a list
-conversation_history = []
+conversation_history = load_conversation_history()
 
 # set what the bot is allowed to listen to
 intents = discord.Intents.default()
@@ -28,6 +46,10 @@ def generate_response(prompt):
 		"role": "user",
 		"content": prompt
 	})
+
+	# Save the updated conversation history to the file
+	save_conversation_history()
+
 	data = {
 		"model": config_data['ollama']['model'],  # load model name from config
 		"messages": conversation_history, # Send the entire conversation history
