@@ -1,82 +1,87 @@
 # import everything
-import json
 import requests
+import json
 import discord
+import tomllib
 import ollama
 
+# LOAD VARIABLES FROM config.toml
+with open("config.toml", 'rb') as f: # load config as f (f is short for file im just using slang, chat)
+  config_data = tomllib.load(f)
+
 # api info for ollama
-TOKEN = '' # don't share this with anyone
-API_URL = 'http://localhost:11434/api/generate'
+TOKEN = config_data['discord']['token'] # Load token from config file
+API_URL = 'http://localhost:11434/api/chat'
+
+# Store conversation history in a list
+conversation_history = []
 
 # set what the bot is allowed to listen to
 intents = discord.Intents.default()
 intents.message_content = True  # Allow reading message content
 client = discord.Client(intents=intents)
 
-# Variable used to store past 15 messages (There's probably a better way to do this, but oh well)
-msg_hist = []
-
 # Function to send a request to the Ollama API and get a response
 def generate_response(prompt):
-    # prevent the bot from attempting to mention itself by stripping its @ from the prompt the user provides
-    prompt = prompt.replace(f"<@!{client.user.id}>", "").strip()
-    full_prompt = '\n'.join(msg_hist) + "\n" + prompt  # Add the new user prompt to the history
+	# add user message to history
+	conversation_history.append({
+		"role": "user",
+		"content": prompt
+	})
+	data = {
+		"model": config_data['ollama']['model'],  # load model name from config
+		"messages": conversation_history, # Send the entire conversation history
+		"stream": False  # Set stream to False or the program will start bitching
+	}
 
-    data = {
-        "model": "llama2-uncensored",  # Adjust this if you want to use a different model
-        "prompt": full_prompt,
-        "stream": False
-    }
+	response = requests.post(API_URL, json=data)
+	print("Raw Response Content:", response.text)  # This will print out the raw response for debug purposes.
 
-    response = requests.post(API_URL, json=data)
-    if response.status_code == 200:
-        response_data = response.json()
-        return response_data.get("response", "Sorry, I couldn't generate a response.")
-    else:
-        return "There was an error with the API."
+	# try and except used for error catching
+	try:
+		# Attempt to parse the response as JSON
+		response_data = response.json()
+		assistant_message = response_data['message']['content']
+
+		# Add the assistant's reply to the conversation history
+		conversation_history.append({
+			"role": "assistant",
+			"content": assistant_message
+		})
+
+		return assistant_message
+	except requests.exceptions.JSONDecodeError:
+		return "Error: Invalid API response"
 
 # When the bot is ready
 @client.event
 async def on_ready():
-    print(f'Logged in as {client.user}')
+	print(f'Logged in as {client.user}')
 
 # When the bot detects a new message
 @client.event
 async def on_message(message):
-    # make msg_hist global so this piece of code can work
-    global msg_hist
-    # Don't let the bot reply to itself
-    if message.author == client.user:
-        return
-
-    # Process every message, whether the bot is mentioned or not
-    prompt = message.content.strip()  # Get the message content as the prompt
-
-    # using try and except to prevent it from generating stuff when it doesnt have permission to send in a channel
-    try:
-        # Attempt to show typing indicator, generate response and send response, if not; throw an error to the console
-        try:
-            async with message.channel.typing():
-                # Generate response and send it
-                response = generate_response(prompt).replace(f"{client.user.display_name}:", "").strip()
-                await message.channel.send(response)
-        except discord.errors.Forbidden:
-            # Handle Forbidden error for typing (bot can't show typing)
-            print(f"Error: Bot does not have permission to type in {message.channel.name}")
-            return
-
-        # Basic memory system
-        msg_hist.append(f"{message.author.display_name}: {message.content}")
-        msg_hist.append(f"{client.user.display_name}: {response}")
-
-        # Keep the history within the limit
-        if len(msg_hist) > 15:
-            msg_hist.pop(0)
-
-    except discord.errors.Forbidden as e:
-        # Catch Forbidden error and log it (do not send any further messages to the channel)
-        print(f"Error: Bot does not have permission to send messages in {message.channel.name}")
-        return
+	# Don't let the bot reply to itself
+	if message.author == client.user:
+		return
+	
+	# Process every message, whether the bot is mentioned or not
+	prompt = message.content  # Get the message content as the prompt
+	prompt = f"{message.author.display_name} says: " + prompt
+	# try and except are used to check if the bot has permission to send in the channel.
+	try:
+		#prompt = message.content.replace(f"<@!{client.user.id}>", "").strip()  # Remove the mention part
+		async with message.channel.typing():
+			if prompt:
+				response = generate_response(prompt)
+				await message.channel.send(response)
+			else: # if prompt is empty
+				response = generate_response(prompt)
+				await message.channel.send(response)
+	except discord.errors.Forbidden:
+		# Handle Forbidden error for typing (bot can't show typing)
+		print(f"Error: Bot does not have permission to type in {message.channel.name}")
+		return
 
 # Run the bot
 client.run(TOKEN)
