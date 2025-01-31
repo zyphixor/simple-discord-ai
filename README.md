@@ -20,4 +20,4 @@ Any contributions to this would be greatly appreciated.
 ## TODO
 - Clean code up
 - Squash some bugs
-- provide ability to save history to file for persistance
+- add history "cleaning" (cleans past lines to save on storage, ram, and vram)
