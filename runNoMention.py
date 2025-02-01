@@ -86,6 +86,10 @@ async def on_message(message):
 	# Don't let the bot reply to itself
 	if message.author == client.user:
 		return
+		
+	# Returns if the user is a bot
+	if message.author.bot === True:
+		return
 	
 	# Process every message, whether the bot is mentioned or not
 	prompt = message.content  # Get the message content as the prompt
