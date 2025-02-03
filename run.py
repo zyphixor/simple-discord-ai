@@ -2,7 +2,7 @@
 import requests
 import json
 import discord
-import tomllib
+import tomli as tomllib
 import ollama
 import os # Don't panic!!! This is used to save the history file to the computer!
 
@@ -38,14 +38,25 @@ intents = discord.Intents.default()
 intents.message_content = True  # Allow reading message content
 client = discord.Client(intents=intents)
 
+# Load the system prompt from the config
+system_prompt = config_data['system']['prompt']
 
 # Function to send a request to the Ollama API and get a response
 def generate_response(prompt):
+    # Prefix the prompt with the system instructions
+    full_prompt = f"{system_prompt}\n{prompt}"
+       
     # add user message to history
     conversation_history.append({
         "role": "user",
-        "content": prompt
+        "content": full_prompt
     })
+
+    # Keep only the last 20 messages in the history
+    if len(conversation_history) > 20: # change to a value of your choice
+        print("oldest element removed") # prints if a element is removed from history
+        conversation_history.pop(0)  # Remove the oldest message
+
     # Save the updated conversation history to the file
     save_conversation_history()
 
@@ -87,11 +98,9 @@ async def on_message(message):
     # Don't let the bot reply to itself
     if message.author == client.user:
         return
-	
-    # Returns if the user is a bot
-	if message.author.bot === True:
-		return
-        
+    if message.author.bot == True:
+        return
+          
     # Process every message, whether the bot is mentioned or not
     if client.user.mentioned_in(message):
         prompt = message.content  # Get the message content as the prompt

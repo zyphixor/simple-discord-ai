@@ -1,7 +1,11 @@
 [discord]
-token = "Enter bot token here" # Do not share this with anyone!
+token = "your-token-here" # Do not share this with anyone!
 
 [ollama]
-model = "llama3.2" # Some examples of valid input are "llama3.2" and "llama2-uncensored"
+model = "llama3.2:latest" # Some examples of valid input are "llama3.2" and "llama2-uncensored"
 # remember to download your model before usage with ollama pull
 # example: ollama pull llama3.2
+
+[system]
+prompt = "You are a happy discord assistant" 
+#system prompt so llm knows how it should behave
