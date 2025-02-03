@@ -3,9 +3,10 @@ A self-hostable chatbot for Discord that utilizes ollama.
 
 ## Installation
 1. [Install Ollama](https://ollama.com/download/)
-2. `pip install discord.py ollama requests`
-3. Open `config.toml` and enter your model and bot token
-4. Run `run.py`
+2. Optional: Create virtual Environment `python -m venv venv` / activate Environment: `.\venv\Scripts\Activate`
+3. `pip install -r requirements.txt`
+4. Open `config.toml` and enter your model and bot token
+5. Run `run.py`
 - Note: if you want the bot to work without it being pinged/mentioned, use runNoMention.py
 - Note 2: if you dont want memories and just something simple, use runStable.py
 ## Usage
