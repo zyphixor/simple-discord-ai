@@ -10,6 +10,9 @@ A self-hostable chatbot for Discord that utilizes ollama.
 - Note 2: if you dont want memories and just something simple, use runStable.py
 ## Usage
 To use the bot, ping it via its username (e.g. @bot) or reply to it.
+Use runNoMention.py to make it more seamless and realistic (eg, respond without a ping)
+
+Use runNoMentionImage.py for EXPERIMENTAL image support (You MUST set your model to llava for this to work.)
 
 ## Support
 
