@@ -1,113 +1,113 @@
-# import everything
-import requests
-import json
-import discord
+#!/bin/python
+
+# Following PEP 8, imports should be grouped in the following order:
+# 1. Standard library imports
+import asyncio
+from datetime import datetime, timezone
 import tomllib
-import ollama
-import os # Don't panic!!! This is used to save the history file to the computer!
+import urllib.parse
 
+# 2. Third-party imports
+import discord
+import pymongo
+from ollama import Client
 
-# LOAD VARIABLES FROM config.toml
-with open("config.toml", 'rb') as f:  # load config as f (f is short for file im just using slang, chat)
-    config_data = tomllib.load(f)
-
-# api info for ollama
-TOKEN = config_data['discord']['token']  # Load token from config file
-API_URL = 'http://localhost:11434/api/chat'
-
-# Define the path for the conversation history file
-HISTORY_FILE_PATH = "history.json"
-
-# Load conversation history from a file if it exists
-def load_conversation_history():
-    if os.path.exists(HISTORY_FILE_PATH):
-        with open(HISTORY_FILE_PATH, 'r') as file:
-            return json.load(file)
-    return []
-
-# Save conversation history to a file
-def save_conversation_history():
-    with open(HISTORY_FILE_PATH, 'w') as file:
-        json.dump(conversation_history, file)
-
-# Store conversation history in a list
-conversation_history = load_conversation_history()
-
-# set what the bot is allowed to listen to
-intents = discord.Intents.default()
-intents.message_content = True  # Allow reading message content
-client = discord.Client(intents=intents)
-
-
-# Function to send a request to the Ollama API and get a response
-def generate_response(prompt):
-    # add user message to history
-    conversation_history.append({
-        "role": "user",
-        "content": prompt
-    })
-    # Save the updated conversation history to the file
-    save_conversation_history()
-
-    data = {
-        "model": config_data['ollama']['model'],  # load model name from config
-        "messages": conversation_history,  # Send the entire conversation history
-        "stream": False  # Set stream to False or the program will start bitching
-    }
-
-    response = requests.post(API_URL, json=data)
-    print("Raw Response Content:", response.text)  # This will print out the raw response for debug purposes.
-
-    # try and except used for error catching
-    try:
-        # Attempt to parse the response as JSON
-        response_data = response.json()
-        assistant_message = response_data['message']['content']
-
-        # Add the assistant's reply to the conversation history
-        conversation_history.append({
-            "role": "assistant",
-            "content": assistant_message
-        })
-
-        return assistant_message
-    except requests.exceptions.JSONDecodeError:
-        return "Error: Invalid API response"
-
-
-# When the bot is ready
-@client.event
-async def on_ready():
-    print(f'Logged in as {client.user}')
-
-
-# When the bot detects a new message
-@client.event
-async def on_message(message):
-    # Don't let the bot reply to itself
-    if message.author == client.user:
-        return
-	
-    # Returns if the user is a bot
-	if message.author.bot == True:
-		return
+class DiscordLLM(discord.Client):
+    def __init__(self, config_path="config.toml"):
+        # Load configuration from a TOML file, so its easier to configure and
+        # the code doesn't contain sensitive information like tokens and API keys
+        with open(config_path, "rb") as f:
+            self.config = tomllib.load(f)
         
-    # Process every message, whether the bot is mentioned or not
-    if client.user.mentioned_in(message):
-        prompt = message.content  # Get the message content as the prompt
-        prompt = f"{message.author.display_name} says: " + prompt
-     # try and except are used to check if the bot has permission to send in the channel.
-        try:
-        # prompt = message.content.replace(f"<@!{client.user.id}>", "").strip()  # Remove the mention part
-            async with message.channel.typing():
-             if prompt:
-                 response = generate_response(prompt)
-                 await message.channel.send(response)
-        except discord.errors.Forbidden:
-        # Handle Forbidden error for typing (bot can't show typing)
-            print(f"Error: Bot does not have permission to type in {message.channel.name}")
+        intents = discord.Intents.default()
+        intents.message_content = True  # Enable message content intent
+        super().__init__(intents=intents)
+
+        
+        self.chat_history, self.msgLimit = self._setup_mongodb()
+        
+        # I think it'll be easier and cleaner to basically
+        # make this a custom client, so people can make remote LLM servers
+        # According to ollama's documentation, we can make a client variable
+        self.ollama_client = Client(host=self.config["ollama"]["host"])
+
+    # MongoDB Setup. I hope I don't mess this up.
+    def _setup_mongodb(self):
+        cfg = self.config["mongodb"]
+        host, db_name = cfg["host"], cfg["name"]
+        # Prepare credentials if provided in the config file
+        user, password = cfg.get("user", ""), cfg.get("password", "")
+
+        if user and password:
+            # Use authentication
+            # Escaping user/pass in case they contain special characters
+            u,p = urllib.parse.quote_plus(user), urllib.parse.quote_plus(password)
+            uri = f"mongodb://{u}:{p}@{host}"
+        else:
+            # No authentication
+            uri = f"mongodb://{host}"
+
+        # Connect to DB
+        client = pymongo.MongoClient(uri)
+        db = client[db_name]        
+        print(f"Connected to database '{db_name}' at '{host}'")
+        return db["chatHistory"], cfg.get("msgLimit", 50)
+    
+    # Function to generate AI responses using Ollama
+    def _llm_response(self, prompt):
+        # this is probably the worst code I've ever written, but it works, so I'm not gonna change it.
+        # Fetch the last 50 messages from the chat history for the given user and channel, sorted by newest to oldest
+        memory_docs = list(self.chat_history.find().sort("timestamp", -1).limit(self.msgLimit))
+        memory_docs.reverse()  # Reverse the list to have the oldest messages first for the AI to read in the correct order
+
+        memory_messages = [{"role": doc["role"], "content": doc["content"]} for doc in memory_docs]
+        
+        messages = [
+            {"role": "system", "content": self.config["ollama"]["sysPrompt"]},
+            *memory_messages,  # Unpack the memory messages into the main messages list
+            {"role": "user", "content": prompt}
+        ]
+
+    # Add predicting response so the AI actually works
+        response = self.ollama_client.chat(model=self.config["ollama"]["model"], messages=messages)
+        return response.message.content
+
+    async def on_ready(self):
+        print(f'Bot is successfully up as {self.user}')
+
+    async def on_message(self, message):
+        if message.author == self.user:
+            return  # Ignore messages from the bot itself
+        
+        # Ignore messages from other bots to prevent potential infinite loops or unwanted interactions
+        if message.author.bot:
             return
 
+        # Grab user messages and display name so bot knows who said what, and can respond accordingly
+        prompt = f"The user named {message.author.display_name} said: {message.content}"
+        
+        try:
+            async with message.channel.typing():  # Show typing indicator while processing the response
+                # Run slow llm call in a separate thread to avoid blocking the event loop
+                response = await asyncio.to_thread(self._llm_response, prompt)
+                await message.channel.send(response)  # Send the response back to Discord
 
-# Run the bot
-client.run(TOKEN)
+                self.chat_history.insert_many([
+                    {"role": "user", "content": prompt, "timestamp": datetime.now(timezone.utc)},
+                    {"role": "assistant", "content": response, "timestamp": datetime.now(timezone.utc)}
+                ])
+                
+                # Trim the DB to keep only the last 50 messages
+                last_kept_docs = list(self.chat_history.find().sort("timestamp", -1).limit(self.msgLimit))
+                if last_kept_docs:
+                    oldest_kept_timestamp = last_kept_docs[-1]["timestamp"]
+                    # Delete anything older than the oldest message we want to keep
+                    self.chat_history.delete_many({"timestamp": {"$lt": oldest_kept_timestamp}})
+
+        except Exception as e:
+            await message.channel.send(f"Error generating AI response: {e}")    
+
+# run bot
+if __name__ == "__main__":
+    bot = DiscordLLM()
+    bot.run(bot.config["discord"]["token"])

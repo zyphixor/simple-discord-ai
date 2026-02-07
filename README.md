@@ -1,26 +1,93 @@
-# simple-discord-ai
-A self-hostable chatbot for Discord that utilizes ollama.
+# DiscordLLM (Experimental)
+
+> **⚠️ Warning:** This branch is experimental. It may be insecure, unstable, or undergo breaking changes. Use at your own risk.
+
+DiscordLLM is a self-hostable Discord chatbot that brings the power of local LLMs to your server using **Ollama** and **MongoDB**.
+
+---
+
+## Features
+
+* **Local Inference:** Powered by Ollama, no expensive API keys required.
+* **Memory:** Utilizes MongoDB to store conversation history for contextual responses.
+* **Extensible:** Built with Python and designed for easy setup and tinkering.
+
+## Prerequisites
+
+Before starting, ensure you have the following installed and running:
+
+* [Ollama](https://ollama.ai/) (Local LLM runner)
+* [MongoDB](https://www.mongodb.com/) (For chat history)
+* Python 3.11+
 
 ## Installation
-1. [Install Ollama](https://ollama.com/download/)
-2. `pip install discord.py ollama requests`
-3. Open `config.toml` and enter your model and bot token
-4. Run `run.py`
-- Note: if you want the bot to work without it being pinged/mentioned, use runNoMention.py
-- Note 2: if you dont want memories and just something simple, use runStable.py
-## Usage
-To use the bot, ping it via its username (e.g. @bot) or reply to it.
-Use runNoMention.py to make it more seamless and realistic (eg, respond without a ping)
 
-Use runNoMentionImage.py for EXPERIMENTAL image support (You MUST set your model to llava for this to work.)
+### 1. Clone & Install Dependencies
+
+```bash
+git clone -b experimental https://github.com/zyphixor/simple-discord-ai.git
+cd simple-discord-ai
+pip install -r requirements.txt
+
+```
+
+### 2. Configuration
+
+Copy the example config (if applicable) or edit `config.toml` directly with your Discord Token and MongoDB credentials:
+
+```toml
+# MongoDB Connection Settings
+[mongodb]
+host = "localhost:27017"
+name = "DiscordLLM" 
+user = ""      # Optional: Recommended for production
+password = ""  # Optional: Recommended for production
+msgLimit = 50  # Number of past messages the LLM remembers (Hardware dependent)
+
+# Local LLM Settings (via Ollama)
+[ollama]
+host = "http://localhost:11434"
+model = "llama3.2"
+sysPrompt = """
+
+You are a Discord chatbot. 
+Do not explain your reasoning, thoughts or internal analysis. Only output the final response to the user.
+
+"""
+# Discord Bot Credentials
+[discord]
+# KEEP THIS PRIVATE. Do not share this with anyone EVER!
+token = "YOUR_DISCORD_BOT_TOKEN_HERE"
+
+```
+
+### 3. Run the Bot
+
+```bash
+python3 run.py
+
+```
+
+---
+
+## Usage
+
+1. Invite the bot to your server using the Discord Developer Portal.
+2. Ensure the bot has **Read/Write** and **Message Content Intent** permissions.
+3. Start chatting! The bot responds to messages in any channel it can access.
+
+---
+
+## Roadmap (TODO)
+
+* [ ] **Operation Modes:** Add "mention-only," "specific-channel," and "fast" modes.
+* [ ] **Security:** Implement hashed passwords and encrypted token support in `config.toml`.
+* [ ] **Docker Support:** Simplify deployment with a `docker-compose.yml` (Unconfirmed, still thinking about it).
 
 ## Support
 
-Discord coming soon
+This is a **personal project**.
 
-Any contributions to this would be greatly appreciated. 
-
-## TODO
-- Clean code up
-- Squash some bugs
-- add history "cleaning" (cleans past lines to save on storage, ram, and vram)
+* **No official support** is provided.
+* I may help in my free time, but please do not expect immediate responses.
+* Pull requests are welcome!
